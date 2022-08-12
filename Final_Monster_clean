@@ -1,0 +1,392 @@
+drop table if exists "public"."monster_data";
+CREATE TABLE "public"."monster_data"(country         character varying(24) encode lzo default NULL,
+                                   country_code    character varying(2) encode lzo default NULL,
+                                   date_added      character varying(10) encode lzo default NULL,
+                                   has_expired     character varying(2) encode lzo default NULL,
+                                   job_board       character varying(16) encode lzo default NULL,
+                                   job_description character varying(25000) encode lzo default NULL,
+                                   job_title       character varying(500) encode lzo default NULL,
+                                   job_type        character varying(45) encode lzo default NULL,
+                                   location        character varying(20000) encode lzo default NULL,
+                                   organization    character varying(20000) encode lzo default NULL,
+                                   page_url        character varying(229) encode lzo default NULL,
+                                   salary          character varying(300) encode lzo default NULL,
+                                   sector          character varying(4000) encode lzo default NULL,--
+                                   uniq_id         character varying(32) encode lzo default NULL);
+
+
+
+
+
+COPY "onramp-week-2".public.monster_data FROM 's3://onrampeugenepang/monster_com-job_sample.csv' IAM_ROLE 'arn:aws:iam::592513028616:role/S3pangeugene' FORMAT AS CSV DELIMITER ',' QUOTE '"' REGION AS 'us-west-1' IGNOREHEADER 1
+
+
+
+--Adding more columns to flag job_type
+alter table monster_data
+add column fulltime_flg boolean default NULL;
+alter table monster_data
+add column parttime_flg boolean default NULL;
+alter table monster_data
+add column temporary_flg boolean default NULL;
+alter table monster_data
+add column contract_flg boolean default NULL;
+alter table monster_data
+add column project_flg boolean default NULL;
+alter table monster_data
+add column intern_flg boolean default NULL;
+alter table monster_data
+add column perdiem_flg boolean default NULL;
+alter table monster_data
+add column exempt_flg boolean default NULL;
+alter table monster_data
+add column nojobtype_flg boolean default NULL;
+--switching location and organization where state code exists
+alter table monster_data
+add column new_location varchar(20000) default NULL;
+alter table monster_data
+add column new_organization varchar(20000) default NULL;
+--Adding zipcode
+alter table monster_data
+add column zipcode int default NULL;
+alter table monster_data
+add column new_zipcode int default NULL;
+-- Add State
+alter table monster_data
+add column state varchar(2) default NULL;
+--Add Hourly
+alter table monster_data
+add column hourly_start varchar(10) default NULL;
+alter table monster_data
+add column hourly_start_new varchar(10) default NULL;
+alter table monster_data
+add column hourly_end varchar(10) default NULL;
+alter table monster_data
+add column hourly_start_clean varchar(10) default NULL;
+alter table monster_data
+add column hourly_end_clean varchar(10) default NULL;
+--Add Yearly
+alter table monster_data
+add column yearly_start varchar(10) default NULL;
+alter table monster_data
+add column yearly_start_new varchar(10) default NULL;
+alter table monster_data
+add column yearly_end varchar(10) default NULL;
+alter table monster_data
+add column yearly_start_clean varchar(10) default NULL;
+alter table monster_data
+add column yearly_end_clean varchar(10) default NULL;
+
+
+
+
+
+update monster_data
+set date_added = case 
+					when TO_DATE(date_added, 'MM/DD/YYYY') = '0001-01-01 BC' then NULL 
+    				else TO_DATE(date_added, 'MM/DD/YYYY') 
+                 end,
+    fulltime_flg = case
+    				when upper(job_type) like '%FULL%' 
+                    	or upper(job_type) like 'EMPLOYEE'
+                        or upper(job_type) like 'JOB TYPE EMPLOYEE' then 1 else 0 end,
+    parttime_flg = case
+    				when upper(job_type) like '%PART%' then 1 else 0 end,
+	temporary_flg = case
+    				when upper(job_type) like '%TEMPORARY%' then 1 else 0 end,
+	contract_flg = case
+    				when upper(job_type) like '%CONTRACT%' then 1 else 0 end,
+	project_flg = case
+    				when upper(job_type) like '%PROJECT%' then 1 else 0 end,
+	intern_flg = case
+    				when upper(job_type) like '%INTERN%' then 1 else 0 end,
+	perdiem_flg = case
+    				when upper(job_type) like '%DIEM%' then 1 else 0 end,
+	exempt_flg = case
+    				when upper(job_type) like '%EXEMPT%' then 1 else 0 end,
+    nojobtype_flg = case
+    				when len(job_type) = 0 then 1 else 0 end,
+    zipcode = case 
+				when (location like '%1%' 
+					or location like '%2%' 
+    				or location like '%3%' 
+    				or location like '%4%'
+                	or location like '%5%'
+                	or location like '%6%'
+                	or location like '%7%'
+                	or location like '%8%'
+                	or location like '%9%')
+                	and len(location) < 30
+                	and location not in ('Company:5 North, Inc.', '84 Lumber', 'L1/L2/L3 support', 'Tier 1 Software support', 'Unix L3 SA')
+                    and right(location, 5) not in ('. 304', '. 128', ' x304', 'ger 2', 'ech 1', 'ech 2', 'ier 2', 'r 603', 'R 918', '3, PA')
+                	then cast(right(location, 5) as int) end,
+    new_location = case
+    				when organization like '% AL%' or
+    				organization like '% AK%' or
+    				organization like '% AZ%' or
+    				organization like '% AR%' or
+    				organization like '% CA%' or
+    				organization like '% CO%' or
+    				organization like '% CT%' or
+    				organization like '% DE%' or
+    				organization like '% FL%' or
+    				organization like '% GA%' or
+    				organization like '% HI%' or
+    				organization like '% ID%' or
+    				organization like '% IL%' or
+    				organization like '% IN%' or
+    				organization like '% IA%' or
+    				organization like '% KS%' or
+    				organization like '% KY%' or
+    				organization like '% LA%' or
+    				organization like '% ME%' or
+    				organization like '% MD%' or
+    				organization like '% MA%' or
+    				organization like '% MI%' or
+    				organization like '% MN%' or
+    				organization like '% MS%' or
+    				organization like '% MO%' or
+    				organization like '% MT%' or
+    				organization like '% NE%' or
+    				organization like '% NV%' or
+    				organization like '% NH%' or
+    				organization like '% NJ%' or
+    				organization like '% NM%' or
+    				organization like '% NY%' or
+    				organization like '% NC%' or
+    				organization like '% ND%' or
+    				organization like '% OH%' or
+    				organization like '% OK%' or
+    				organization like '% OR%' or
+    				organization like '% PA%' or
+    				organization like '% RI%' or
+    				organization like '% SC%' or
+    				organization like '% SD%' or
+    				organization like '% TN%' or
+    				organization like '% TX%' or
+    				organization like '% UT%' or
+    				organization like '% VT%' or
+    				organization like '% VA%' or
+    				organization like '% WA%' or
+    				organization like '% WV%' or
+    				organization like '% WI%' or
+    				organization like '% WY%'
+                    then organization
+                    else location
+                    end,
+      new_organization = case
+    				when organization like '% AL%' or
+    				organization like '% AK%' or
+    				organization like '% AZ%' or
+    				organization like '% AR%' or
+    				organization like '% CA%' or
+    				organization like '% CO%' or
+    				organization like '% CT%' or
+    				organization like '% DE%' or
+    				organization like '% FL%' or
+    				organization like '% GA%' or
+    				organization like '% HI%' or
+    				organization like '% ID%' or
+    				organization like '% IL%' or
+    				organization like '% IN%' or
+    				organization like '% IA%' or
+    				organization like '% KS%' or
+    				organization like '% KY%' or
+    				organization like '% LA%' or
+    				organization like '% ME%' or
+    				organization like '% MD%' or
+    				organization like '% MA%' or
+    				organization like '% MI%' or
+    				organization like '% MN%' or
+    				organization like '% MS%' or
+    				organization like '% MO%' or
+    				organization like '% MT%' or
+    				organization like '% NE%' or
+    				organization like '% NV%' or
+    				organization like '% NH%' or
+    				organization like '% NJ%' or
+    				organization like '% NM%' or
+    				organization like '% NY%' or
+    				organization like '% NC%' or
+    				organization like '% ND%' or
+    				organization like '% OH%' or
+    				organization like '% OK%' or
+    				organization like '% OR%' or
+    				organization like '% PA%' or
+    				organization like '% RI%' or
+    				organization like '% SC%' or
+    				organization like '% SD%' or
+    				organization like '% TN%' or
+    				organization like '% TX%' or
+    				organization like '% UT%' or
+    				organization like '% VT%' or
+    				organization like '% VA%' or
+    				organization like '% WA%' or
+    				organization like '% WV%' or
+    				organization like '% WI%' or
+    				organization like '% WY%'
+                    then location
+                    else organization
+                    end,
+      new_zipcode = case 
+				when zipcode is NULL
+                	and (new_location like '%1%' 
+					or new_location like '%2%' 
+    				or new_location like '%3%' 
+    				or new_location like '%4%'
+                	or new_location like '%5%'
+                	or new_location like '%6%'
+                	or new_location like '%7%'
+                	or new_location like '%8%'
+                	or new_location like '%9%')
+                	and len(new_location) < 30
+                	and new_location not in ('Company:5 North, Inc.', '84 Lumber', 'L1/L2/L3 support', 'Tier 1 Software support', 'Unix L3 SA')
+                    and right(new_location, 5) not in ('. 304', '. 128', ' x304', 'ger 2', 'ech 1', 'ech 2', 'ier 2', 'r 603', 'R 918', '3, PA')
+                	then cast(right(new_location, 5) as int) 
+                    else zipcode end,
+      state = case
+    				when new_location like '% AL%' then 'AL'
+    				when new_location like '% AK%' then 'AK'
+    				when new_location like '% AZ%' then 'AZ'
+    				when new_location like '% AR%' then 'AR'
+    				when new_location like '% CA%' then 'CA'
+    				when new_location like '% CO%' then 'CO'
+    				when new_location like '% CT%' then 'CT'
+    				when new_location like '% DE%' then 'DE'
+    				when new_location like '% FL%' then 'FL'
+    				when new_location like '% GA%' then 'GA'
+    				when new_location like '% HI%' then 'HI'
+    				when new_location like '% ID%' then 'ID'
+    				when new_location like '% IL%' then 'IL'
+    				when new_location like '% IN%' then 'IN'
+    				when new_location like '% IA%' then 'IA'
+    				when new_location like '% KS%' then 'KS'
+    				when new_location like '% KY%' then 'KY'
+    				when new_location like '% LA%' then 'LA'
+    				when new_location like '% ME%' then 'ME'
+    				when new_location like '% MD%' then 'MD'
+    				when new_location like '% MA%' then 'MA'
+    				when new_location like '% MI%' then 'MI'
+    				when new_location like '% MN%' then 'MN'
+    				when new_location like '% MS%' then 'MS'
+    				when new_location like '% MO%' then 'MO'
+    				when new_location like '% MT%' then 'MT'
+    				when new_location like '% NE%' then 'NE'
+    				when new_location like '% NV%' then 'NV'
+    				when new_location like '% NH%' then 'NH'
+    				when new_location like '% NJ%' then 'NJ'
+    				when new_location like '% NM%' then 'NM'
+    				when new_location like '% NY%' then 'NY'
+    				when new_location like '% NC%' then 'NC'
+    				when new_location like '% ND%' then 'ND'
+    				when new_location like '% OH%' then 'OH'
+    				when new_location like '% OK%' then 'OK'
+    				when new_location like '% OR%' then 'OR'
+    				when new_location like '% PA%' then 'PA'
+    				when new_location like '% RI%' then 'RI'
+    				when new_location like '% SC%' then 'SC'
+    				when new_location like '% SD%' then 'SD'
+    				when new_location like '% TN%' then 'TN'
+    				when new_location like '% TX%' then 'TX'
+    				when new_location like '% UT%' then 'UT'
+    				when new_location like '% VT%' then 'VT'
+    				when new_location like '% VA%' then 'VA'
+    				when new_location like '% WA%' then 'WA'
+    				when new_location like '% WV%' then 'WV'
+    				when new_location like '% WI%' then 'WI'
+    				when new_location like '% WY%' then 'WY'
+                    else NULL
+                    end,
+      sector = case
+      				when len(sector) = 0 then NULL
+                    when len(sector) > 500 then NULL
+                    else sector
+                    end,
+      hourly_end = case
+    				when len(replace(replace(split_part(split_part(salary, '-', 2), ' $ /hour', 1), ' /hour', ''), ',', '')) = 0 then NULL
+    				when salary like '%/hour%' 
+                    			then to_number(replace(replace(split_part(split_part(salary, '-', 2), ' $ /hour', 1), ' /hour', ''), ',', ''), '999999D99')
+                    end,
+      hourly_start =  case 
+    				when salary like '%/hour%' and salary like '% - %' 
+                    									then to_number(replace(replace(split_part(salary, ' - ', 1), '$', ''), ',', ''), '999999D99')
+    				when salary like '%/hour%' and salary like '%+%' 
+                    									then to_number(replace(replace(split_part(salary, '+', 1), '$', ''), ',', ''), '999999D99')
+                    end,
+      hourly_start_new = case when hourly_start = 0 then NULL else hourly_start end,
+      yearly_end = case
+  					when len(replace(replace(split_part(split_part(salary, '-', 2), ' $ /year', 1), ' /year', ''), ',', '')) = 0 then NULL
+  					when salary like '%$65,000.00+ /yearPlus Overtime Pay and Discretionary Year-End Bonus%' then NULL
+    				when salary like '%/year%' then 
+  						to_number(replace(replace(split_part(split_part(salary, '-', 2), ' $ /year', 1), ' /year', ''), ',', ''), '9999999D99')
+    				end,
+      yearly_start = case 
+    				when salary like '%/year%' and salary like '% - %' 
+                    									then to_number(replace(replace(split_part(salary, ' - ', 1), '$', ''), ',', ''), '9999999D99')
+    				when salary like '%/year%' and salary like '%+%' 
+                    									then to_number(replace(replace(split_part(salary, '+', 1), '$', ''), ',', ''), '9999999D99')
+    				end,
+      yearly_start_new = case when yearly_start = 0 then NULL else yearly_start end,
+      yearly_start_clean = case when hourly_start_new > 10000 or hourly_end > 10000 then hourly_start_new else yearly_start_new end,
+      yearly_end_clean = case when hourly_end > 10000 or hourly_start_new > 10000 then hourly_end else yearly_end end,
+      hourly_start_clean = case when yearly_start_new <= 10000 or yearly_end <= 10000 then yearly_start_new else hourly_start_new end,
+      hourly_end_clean = case when yearly_end <= 10000 or yearly_start_new <= 10000 then yearly_end else hourly_end end
+      
+;
+
+     
+            
+create table monster_data_final as
+select
+	row_number() over() as jobid
+	, uniq_id
+	, country
+    , country_code
+    , date_added
+    , has_expired
+    , job_board
+    , job_description
+    , job_title
+    , new_location as location
+    , new_zipcode as zipcode
+    , state
+    , new_organization as organization
+    , hourly_start_clean as hourly_start
+    , hourly_end_clean as hourly_end
+    , yearly_start_clean as yearly_start
+    , yearly_end_clean as yearly_clean
+    , page_url
+    , sector
+    , fulltime_flg
+    , parttime_flg
+    , temporary_flg
+    , contract_flg
+    , project_flg
+    , intern_flg
+    , perdiem_flg
+    , exempt_flg
+    , nojobtype_flg
+from monster_data;
+
+--drop table monster_data;
+
+select count(*) from monster_data;
+select count(*) from monster_data_final;
+
+select * from monster_data_final;
+
+
+
+
+
+UNLOAD ('select * from monster_data_final')
+TO 's3://onrampeugenepang/monster_data_clean_final_'
+IAM_ROLE 'arn:aws:iam::592513028616:role/S3pangeugene'
+parallel off
+HEADER
+CSV;
+
+
+
+
+
