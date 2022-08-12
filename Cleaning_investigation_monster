@@ -1,0 +1,252 @@
+/*Cleaning data monster: investigating each field to see max lengths and see where I can optimize and clean*/
+
+--country, country_code, date_added, has_expired, job_board, job_description, job_title, job_type, location, organization, page_url, salary, sector, uniq_id
+
+/*country Clean*/
+select distinct country from monster_data; -- only one country, the varchar was changed from max to 24
+
+
+/*country_code Clean*/
+select distinct country_code from monster_data; -- only one country code, the varchar was changed from max to 2
+
+
+/*date_added Clean*/
+select distinct date_added from monster_data; -- changed to varchar(10) and now need to change to date type, if null 
+select distinct case when TO_DATE(date_added, 'MM/DD/YYYY') = '0001-01-01 BC' then NULL else TO_DATE(date_added, 'MM/DD/YYYY') end as date_new from monster_data;
+
+update monster_data
+set date_added = case when TO_DATE(date_added, 'MM/DD/YYYY') = '0001-01-01 BC' then NULL else TO_DATE(date_added, 'MM/DD/YYYY') end;
+
+
+/*has_expired clean*/
+select distinct has_expired from monster_data; --only 'No' therefore will change to varchar(2)
+
+
+/*job_board clean*/
+select distinct job_board from monster_data; -- jobs.monster.com one answer that is len 16
+
+
+/*job_description clean*/
+select distinct job_description from monster_data; -- get rid of html in it
+select max(len(job_description)) from monster_data; --20191
+
+
+
+/*job_type clean*/
+select distinct job_type from monster_data;
+--multiple boolean columns to clean up and dropped job_type field, might be best to make a separate dimension table instead
+
+
+/*job_title clean*/
+select distinct job_title from monster_data; -- get rid of html and location (in blah)
+select job_title, count(*) from monster_data group by job_title order by count(*) desc; -- no nulls
+select max(len(job_title)) from monster_data;
+
+/*location clean*/
+select max(len(location)) from monster_data;
+select distinct location from monster_data; -- need to extract the city, state, and zipcode
+--get zipcode
+drop table if exists test;
+create temporary table test as
+select distinct
+		case 
+			when (location like '%1%' 
+				or location like '%2%' 
+    			or location like '%3%' 
+    			or location like '%4%'
+                or location like '%5%'
+                or location like '%6%'
+                or location like '%7%'
+                or location like '%8%'
+                or location like '%9%')
+                and len(location) < 30
+                and location not in ('Company:5 North, Inc.', '84 Lumber', 'L1/L2/L3 support', 'Tier 1 Software support'
+                  						, 'Unix L3 SA')
+                and right(location, 5) not in ('. 304', '. 128', ' x304', 'ger 2', 'ech 1', 'ech 2', 'ier 2', 'r 603', 'R 918', '3, PA')
+                then right(location, 5)
+             end as zipcode
+      , location
+      --, ISNUMERIC(zipcode) as zipcode_check
+from monster_data;
+--where len(location) < 30;
+
+drop table if exists test_1;
+create temporary table test_1 as
+select 
+	  *
+    , case
+    	when zipcode like '%1%'
+		or zipcode like '%2%' 
+    	or zipcode like '%3%' 
+    	or zipcode like '%4%'
+        or zipcode like '%5%'
+        or zipcode like '%6%'
+        or zipcode like '%7%'
+        or zipcode like '%8%'
+        or zipcode like '%9%'
+        then 1
+        else 0 
+        end as zipcode_check
+from monster_data;
+
+--Now extract city and state
+--if you have zipcode then you should be able to extract city and state, moving on 
+
+
+
+
+/*organization clean*/
+select distinct organization from monster_data; -- the location data is here for some reason too so extract that for location, turn blanks into nulls
+select distinct location, organization from monster_data where organization like '%, %'; -- location and organization is switched for many rows
+
+select distinct new_organization, new_location from monster_data;
+select distinct new_organization, new_location, new_zipcode from monster_data;
+select count(*) from monster_data where new_zipcode is not null; --12122
+select count(*) from monster_data where zipcode is not null; --11991
+
+select organization, location, new_organization, new_location from monster_data where 
+organization like '% AL%'  or
+organization like '% AK%'  or
+organization like '% AZ%'  or
+organization like '% AR%'  or
+organization like '% CA%'  or
+organization like '% CO%'  or
+organization like '% CT%'  or
+organization like '% DE%'  or
+organization like '% FL%'  or
+organization like '% GA%'  or
+organization like '% HI%'  or
+organization like '% ID%'  or
+organization like '% IL%'  or
+organization like '% IN%'  or
+organization like '% IA%'  or
+organization like '% KS%'  or
+organization like '% KY%'  or
+organization like '% LA%'  or
+organization like '% ME%'  or
+organization like '% MD%'  or
+organization like '% MA%'  or
+organization like '% MI%'  or
+organization like '% MN%'  or
+organization like '% MS%'  or
+organization like '% MO%'  or
+organization like '% MT%'  or
+organization like '% NE%'  or
+organization like '% NV%'  or
+organization like '% NH%'  or
+organization like '% NJ%'  or
+organization like '% NM%'  or
+organization like '% NY%'  or
+organization like '% NC%'  or
+organization like '% ND%'  or
+organization like '% OH%'  or
+organization like '% OK%'  or
+organization like '% OR%'  or
+organization like '% PA%'  or
+organization like '% RI%'  or
+organization like '% SC%'  or
+organization like '% SD%'  or
+organization like '% TN%'  or
+organization like '% TX%'  or
+organization like '% UT%'  or
+organization like '% VT%'  or
+organization like '% VA%'  or
+organization like '% WA%'  or
+organization like '% WV%'  or
+organization like '% WI%'  or
+organization like '% WY%';
+  
+
+select max(len(new_organization)) from monster_data;--3425
+select max(len(new_location)) from monster_data;--18745
+
+
+
+
+
+
+
+
+
+/*page_url*/
+select max(len(page_url)) from monster_data; --229
+
+
+
+!!!/*salary*/
+select distinct salary from monster_data; --extract range, extract per hour pay, turn per hour into yearly?
+--no numbers then make null, '/hour' or '/year' then extract the first number then next number
+select max(len(salary)) from monster_data;
+
+select distinct salary, split_part(salary, ' - ', 1) from monster_data where salary like '%/hour%' or salary like '%year%';
+
+
+
+/*HOURLY WAGES*/
+select *, case when hourly_start = 0 then NULL else hourly_start end as hourly_start_new from (
+select distinct salary,
+    case
+    	when len(replace(replace(split_part(split_part(salary, '-', 2), ' $ /hour', 1), ' /hour', ''), ',', '')) = 0 then NULL
+    	when salary like '%/hour%' then 
+        				to_number(replace(replace(split_part(split_part(salary, '-', 2), ' $ /hour', 1), ' /hour', ''), ',', ''), '999999D99')
+    end as hourly_end,
+    case 
+    	when salary like '%/hour%' and salary like '% - %' then to_number(replace(replace(split_part(salary, ' - ', 1), '$', ''), ',', ''), '999999D99')
+    	when salary like '%/hour%' and salary like '%+%' then to_number(replace(replace(split_part(salary, '+', 1), '$', ''), ',', ''), '999999D99')
+    end as hourly_start
+from monster_data
+where salary like '%/hour%');
+
+
+/*YEARLY WAGE*/
+select 
+	  *
+    , case 
+		when yearly_start = 0 then NULL
+        else yearly_start
+        end as yearly_start_new
+from (
+select distinct salary,
+    case
+  		when len(replace(replace(split_part(split_part(salary, '-', 2), ' $ /year', 1), ' /year', ''), ',', '')) = 0 then NULL
+  		when salary like '%$65,000.00+ /yearPlus Overtime Pay and Discretionary Year-End Bonus%' then NULL
+    	when salary like '%/year%' then 
+  						to_number(replace(replace(split_part(split_part(salary, '-', 2), ' $ /year', 1), ' /year', ''), ',', ''), '9999999D99')
+    end as yearly_end,
+    case 
+    	when salary like '%/year%' and salary like '% - %' then to_number(replace(replace(split_part(salary, ' - ', 1), '$', ''), ',', ''), '9999999D99')
+    	when salary like '%/year%' and salary like '%+%' then to_number(replace(replace(split_part(salary, '+', 1), '$', ''), ',', ''), '9999999D99')
+    end as yearly_start
+from monster_data
+where salary like '%/year%');
+
+select * from monster_data where salary like '%$65,000.00+ /yearPlus Overtime Pay and Discretionary Year-End Bonus%'
+
+
+
+
+select to_number('0', '99.99')
+--later add logic so that if hourly is > 10000 then it should be salary
+
+/*sector*/
+select distinct sector from monster_data; --create a overall cateogry for sectors only 164 of them, clean up the nonsense ones
+select max(len(sector)) from monster_data;
+--just change blanks into null and get rid of the paragraphs
+
+
+
+
+
+/*uniq_id*/
+select distinct uniq_id from monster_data;
+select uniq_id, count(*) from monster_data group by uniq_id having count(*) > 1; --is unique
+select max(len(uniq_id)) from monster_data;
+
+
+
+
+
+
+
+
+--
